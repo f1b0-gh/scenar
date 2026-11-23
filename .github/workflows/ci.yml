@@ -1,0 +1,47 @@
+name: Core checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: '0.11.17'
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Lint and test
+        run: |
+          uv lock --check
+          uv run --locked ruff check src tests tools
+          uv run --locked ruff format --check src tests tools
+          uv run --locked pytest -q -ra
+      - name: Build and inspect distributions
+        run: |
+          uv build
+          uv run --locked python tools/check_release.py dist/*.tar.gz dist/*.whl --require-license
+      - name: Exercise the installed wheel outside the source tree
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/scenar-wheel"
+          uv pip install --python "$RUNNER_TEMP/scenar-wheel/bin/python" dist/*.whl
+          cp examples/dataset-small.yaml "$RUNNER_TEMP/dataset-small.yaml"
+          cd "$RUNNER_TEMP"
+          unset PYTHONPATH
+          "$RUNNER_TEMP/scenar-wheel/bin/scenar" --help
+          "$RUNNER_TEMP/scenar-wheel/bin/scenar" dataset prepare dataset-small.yaml --output prepared
+          "$RUNNER_TEMP/scenar-wheel/bin/scenar" dataset inspect prepared

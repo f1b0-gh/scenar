@@ -1,0 +1,22 @@
+# Local RustFS for scenar.
+#   cp .env.example .env   # set real keys
+#   docker compose up -d
+#   set -a; source .env; set +a
+#   ./scenar init-store
+#   ./scenar publish runs/qualified
+# S3 API on :9000, web console on :9001.
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?set RUSTFS_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?set RUSTFS_SECRET_KEY in .env}
+    volumes:
+      - rustfs-data:/data
+
+volumes:
+  rustfs-data:

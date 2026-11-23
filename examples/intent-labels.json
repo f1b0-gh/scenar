@@ -1,0 +1,13 @@
+{
+  "mode": "intent-aware",
+  "episodes": {
+    "e0": {
+      "intent": "benign",
+      "rationale": "Authored approved workflow in the mixed pack"
+    },
+    "e1": {
+      "intent": "malicious",
+      "rationale": "Authored adversary workflow in the mixed pack"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# Environments, caches and build outputs
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+**/build/
+**/dist/
+**/target/
+*.egg-info/
+tests/.tmp_*
+
+# Generated datasets can contain private truth and backend state.
+/runs/
+/exports/
+/datasets/
+/evidence/
+/downloads/
+/reports/
+*.log
+
+# Local credentials and agent/editor state
+.env
+.env.*
+!.env.example
+.aws/
+.agents/
+.codex/
+.superpowers/
+# Private work notes, archived documentation and local verification evidence
+.local/
+.DS_Store

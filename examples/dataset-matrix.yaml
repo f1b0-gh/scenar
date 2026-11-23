@@ -1,0 +1,24 @@
+# 480 explicit generation slots; prepare/inspect before choosing to run this matrix.
+schema: scenar/dataset/v1
+families: [inventory_archive, remote_access, persistence, credential_access, c2]
+variants: [normal, benign, malicious, mixed, ambiguous]
+sizes: [small, medium, large]
+seeds: [9501]
+c2_patterns: [periodic, burst, sparse, rotating]
+start: '2024-05-27T12:00:00Z'
+duration_minutes: 60
+routine_cycles: 3
+background:
+  profile: office
+  intensity: low
+visibility:
+  - mode: complete
+  - mode: lossy
+    probability: 0.2
+    hosts: [FILE-01]
+  - mode: delayed
+    delay_us: 60000000
+    hosts: [FILE-01]
+  - mode: missing_endpoint
+    hosts: [FILE-01]
+stage_timeout_seconds: 1800

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "source_commit": "79fcfcdf3726168dacfede5a27aab2aa7a2f3d69",
+  "cases": [
+    {
+      "case_id": "attack-cmd",
+      "seed": 2301,
+      "scenario": "attack-cmd.yaml",
+      "section": "storyline",
+      "required_record_ids": [
+        "remote-session#0",
+        "discovery#0",
+        "collection#0"
+      ],
+      "source_ip": "10.44.10.24",
+      "target_host": "FILE-BO-01.northstar-branch.local",
+      "actor": "NORTHSTAR-BRANCH\\nina.kapoor",
+      "required_commands": [
+        "cmd.exe /c dir C:\\Claims /s",
+        "powershell.exe -NoProfile -Command Compress-Archive -Path C:\\Claims -DestinationPath C:\\Windows\\Temp\\claims-stage.zip -Force"
+      ],
+      "archive_path": "C:\\Windows\\Temp\\claims-stage.zip",
+      "hidden_intent": "unauthorized_collection",
+      "expected_observable_hypothesis": "remote_session_then_discovery_and_archive_staging",
+      "as_of": "2024-05-27T12:15:00Z",
+      "max_source_time_skew_seconds": 5
+    },
+    {
+      "case_id": "attack-powershell",
+      "seed": 2301,
+      "scenario": "attack-powershell.yaml",
+      "section": "storyline",
+      "required_record_ids": [
+        "remote-session#0",
+        "discovery#0",
+        "collection#0"
+      ],
+      "source_ip": "10.44.10.24",
+      "target_host": "FILE-BO-01.northstar-branch.local",
+      "actor": "NORTHSTAR-BRANCH\\nina.kapoor",
+      "required_commands": [
+        "powershell.exe -NoProfile -Command Get-ChildItem C:\\Claims -Recurse",
+        "powershell.exe -NoProfile -Command Compress-Archive -Path C:\\Claims -DestinationPath C:\\Windows\\Temp\\claims-stage.zip -Force"
+      ],
+      "archive_path": "C:\\Windows\\Temp\\claims-stage.zip",
+      "hidden_intent": "unauthorized_collection",
+      "expected_observable_hypothesis": "remote_session_then_discovery_and_archive_staging",
+      "as_of": "2024-05-27T12:15:00Z",
+      "max_source_time_skew_seconds": 5
+    },
+    {
+      "case_id": "benign-admin",
+      "seed": 2401,
+      "scenario": "benign-admin.yaml",
+      "section": "red_herring",
+      "required_record_ids": [
+        "red_herring:remote-session#0",
+        "red_herring:discovery#0",
+        "red_herring:collection#0"
+      ],
+      "source_ip": "10.44.10.24",
+      "target_host": "FILE-BO-01.northstar-branch.local",
+      "actor": "NORTHSTAR-BRANCH\\nina.kapoor",
+      "required_commands": [
+        "cmd.exe /c dir C:\\Claims /s",
+        "powershell.exe -NoProfile -Command Compress-Archive -Path C:\\Claims -DestinationPath C:\\Windows\\Temp\\claims-stage.zip -Force"
+      ],
+      "archive_path": "C:\\Windows\\Temp\\claims-stage.zip",
+      "hidden_intent": "authorized_migration",
+      "expected_observable_hypothesis": "remote_session_then_discovery_and_archive_staging",
+      "as_of": "2024-05-27T12:15:00Z",
+      "max_source_time_skew_seconds": 5
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema": "scenar/regressions/v1",
+  "cohort_status": "exposed-development",
+  "entries": [
+    {"id": "episode-membership", "implementation": "scenar.evaluation.episodes", "tests": ["tests/test_investigation_episodes.py", "tests/test_investigation_boundaries.py"], "checks": ["shared-parent-is-not-membership", "multiple-membership", "missing-file-effect", "ambiguous-native-match", "late-authorization", "budget-exhaustion"]},
+    {"id": "episode-archive-parity", "tests": ["tests/test_investigation_parity.py"], "source": "detect/evidence/investigation-episodes-20261119/replayed", "provenance": "same-captures-current-harness", "independent_holdout": false},
+    {"id": "c2-linked-workflow", "implementation": "scenar.evaluation.c2", "tests": ["tests/test_c2.py"], "source": "detect/evidence/c2-chain-20261119/qualified", "provenance": "archived-public-views", "independent_holdout": false},
+    {"id": "c2-known-misses", "status": "documented-query-limitations", "fresh_generation": false, "cases": ["burst-under-10-seconds", "two-contacts", "persistent-connection", "destination-rotation", "unsupported-transport"], "reason": "Current structural query needs at least three reconciled contacts per destination spanning ten seconds before child execution"},
+    {"id": "split-independence", "implementation": "scenar.lineage.check_partitions", "tests": ["tests/test_lineage.py"], "axes": ["capture", "family", "environment", "time_block"]}
+  ]
+}

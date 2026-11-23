@@ -1,0 +1,2 @@
+- Follow the [Python guidelines](skills/python/SKILL.md).
+- Keep documentation current and in English; archive plans and notes in `.local/`.

@@ -1,0 +1,51 @@
+name: Native dataset smoke
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: scenar-native-smoke
+  cancel-in-progress: false
+jobs:
+  native:
+    if: vars.SCENAR_NATIVE_SMOKE_ENABLED == 'true'
+    # Dedicated trusted runner, provisioned with the pinned Forge checkout and RustFS.
+    # Never run this job on pull_request or pull_request_target.
+    runs-on: [self-hosted, linux, scenar-native]
+    timeout-minutes: 180
+    env:
+      SCENAR_EVIDENCEFORGE: ${{ vars.SCENAR_EVIDENCEFORGE }}
+      SCENAR_SMOKE_S3: ${{ vars.SCENAR_SMOKE_S3 }}
+      RUSTFS_ENDPOINT: ${{ vars.RUSTFS_ENDPOINT }}
+      RUSTFS_ACCESS_KEY: ${{ secrets.RUSTFS_ACCESS_KEY }}
+      RUSTFS_SECRET_KEY: ${{ secrets.RUSTFS_SECRET_KEY }}
+      RUSTFS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reproduce Scenar environment
+        run: uv sync --locked
+      - name: Require configured native host and RustFS store
+        shell: bash
+        run: |
+          test -n "$SCENAR_EVIDENCEFORGE"
+          test -n "$SCENAR_SMOKE_S3"
+          test -n "$RUSTFS_ENDPOINT"
+          uv run --locked scenar init-store "$SCENAR_SMOKE_S3"
+      - name: Generate, audit, publish and pull fresh data
+        shell: bash
+        run: |
+          uv run --locked scenar dataset smoke \
+            --output "$RUNNER_TEMP/scenar-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --s3-store "$SCENAR_SMOKE_S3" \
+            --stage-timeout-seconds 900
+      - name: Retain summary and preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-smoke-summary
+          path: |
+            ${{ runner.temp }}/scenar-smoke-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+            ${{ runner.temp }}/scenar-smoke-${{ github.run_id }}-${{ github.run_attempt }}/preflight.json
+          if-no-files-found: warn

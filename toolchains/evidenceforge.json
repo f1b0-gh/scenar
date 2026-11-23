@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/Cisco-Talos/EvidenceForge",
+  "revision": null,
+  "upstream_verified": false,
+  "source_sha256": "c65869edadc9506f2953506a505a75a05e3920efa51b1037c04edf4c7a16b998",
+  "package_version": "2.1.2",
+  "behavior_revision": 162,
+  "dependency_lock_sha256": "95c7f0f776cb83dab9e37012e5e32e1372521eaab7752b89d3e8a8dd1040318e",
+  "schema_sha256": null
+}

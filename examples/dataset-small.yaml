@@ -1,0 +1,14 @@
+schema: scenar/dataset/v1
+families: [inventory_archive]
+variants: [normal, benign, malicious, mixed, ambiguous]
+sizes: [small]
+seeds: [9501]
+start: '2024-05-27T12:00:00Z'
+duration_minutes: 30
+routine_cycles: 2
+background:
+  profile: office
+  intensity: low
+visibility:
+  - mode: complete
+stage_timeout_seconds: 1800

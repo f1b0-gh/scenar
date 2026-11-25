@@ -32,6 +32,40 @@ Derived views preserve source timestamps. Their visibility transformations and
 availability assumptions are described in [dataset generation](data-generation.md#qualify-a-deliberately-degraded-public-view).
 Missing records do not establish benign activity or the absence of an event.
 
+## Genuine Windows EVTX export
+
+Use a separately pinned EvidenceForge checkout with the `export-evtx` command:
+
+```sh
+scenar backend inspect --backend /path/to/evidenceforge > encoder-pin.json
+scenar export-public runs/dataset --output exports/evtx \
+  --windows-format evtx --backend /path/to/evidenceforge \
+  --pin encoder-pin.json --receipt restricted/evtx-export.json
+```
+
+Review and retain the candidate encoder pin before use. This does not promote the
+active generation backend or change its frozen identity. Scenar verifies the bundle
+and its public allowlist, then invokes external
+`uv run --locked --project BACKEND eforge export-evtx SOURCE.xml OUTPUT.evtx`.
+Only `windows_event_security.xml` and `windows_event_sysmon.xml` become genuine
+`.evtx` files; Zeek `conn.json` and `dns.json` bytes and relative paths stay unchanged.
+The default export still retains XML. Scenar does not embed an EVTX writer.
+
+The destination and receipt must be new. The receipt must be outside both the public
+export and the source bundle. It records the source manifest hash, separate encoder
+identity, and source/output paths, SHA-256 hashes and sizes. Keep this receipt with
+the trusted controller: it is not detector input. The frozen bundle is unchanged.
+A failed conversion or timeout removes staging data and leaves no completed export
+or receipt. `--timeout` bounds each encoder invocation (default 300 seconds),
+including its child processes. EVTX export currently requires a POSIX host.
+
+The encoder rejects unsupported XML instead of inventing native fields. Each input
+must contain one host and channel with increasing native record IDs; reset epochs
+must be split upstream. Export success establishes encoding, not new generation
+qualification or acceptance. Downstream binary decoding is a separate step:
+**Scenar → EvidenceForge EVTX → debinarizr JSON → Normalizr**. Normalizr receives
+JSON; neither binary decoding nor normalization runs inside Scenar.
+
 ## Restricted provenance and truth
 
 The full bundle is for the trusted experiment controller and evaluator. It

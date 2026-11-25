@@ -1,6 +1,7 @@
 """Immutable local/S3 bundles, checksum-verified retrieval, and public-only exports."""
 
 import json
+import math
 import os
 import shutil
 import tempfile
@@ -8,6 +9,7 @@ import warnings
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .backend import BackendIdentity, backend_path, check_backend, inspect_backend
 from .bundle import Artifact, BundleManifest, CaptureResult, Qualification, QualityReport
 from .io import canonical, digest, files, safe_path, write_json
 from .replay import verify_bundle
@@ -236,20 +238,126 @@ def pull_bundle(uri: str, destination: Path) -> BundleManifest:
     return manifest
 
 
-def export_public(bundle: Path, destination: Path) -> None:
+def export_public(
+    bundle: Path,
+    destination: Path,
+    *,
+    windows_format: str = "xml",
+    backend: Path | None = None,
+    pin: BackendIdentity | None = None,
+    receipt: Path | None = None,
+    timeout: float = 300,
+) -> None:
+    """Verify and stage public observations before committing a new export."""
+    from .evtx_export import (
+        WINDOWS_XML,
+        Conversion,
+        ExportReceipt,
+        encode_windows,
+        output_artifact,
+    )
+
+    if windows_format not in {"xml", "evtx"}:
+        raise ValueError("Windows format must be xml or evtx")
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("Encoder timeout must be finite and positive")
+    if destination.resolve().is_relative_to(bundle.resolve()):
+        raise ValueError("Export destination must be outside the frozen source bundle")
+    if receipt is not None and (
+        receipt.resolve().is_relative_to(destination.resolve())
+        or receipt.resolve().is_relative_to(bundle.resolve())
+    ):
+        raise ValueError("Receipt must be outside public output and the frozen source bundle")
+    if windows_format == "evtx" and (pin is None or receipt is None):
+        raise ValueError("EVTX export requires an explicit encoder pin and restricted receipt")
+    if windows_format == "xml" and any(value is not None for value in (backend, pin, receipt)):
+        raise ValueError("Encoder options require --windows-format evtx")
+    source_manifest_sha256 = digest(bundle / "manifest.json")
     manifest = verify_bundle(bundle)
+    if digest(bundle / "manifest.json") != source_manifest_sha256:
+        raise ValueError("Source manifest changed during verification")
     if (bundle / "dataset.json").exists():
         from .datasets.matrix import verify_dataset_public
 
         verify_dataset_public(bundle)
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise FileExistsError(destination)
-    destination.mkdir(parents=True)
-    for a in manifest.files:
-        if a.path.startswith("public/"):
-            target = safe_path(destination, a.path.removeprefix("public/"))
+    if receipt is not None and (receipt.exists() or receipt.is_symlink()):
+        raise FileExistsError(receipt)
+    encoder = None
+    if windows_format == "evtx":
+        backend = backend_path(backend)
+        check_backend(backend, pin)
+        encoder = inspect_backend(backend)
+    public = [a for a in manifest.files if a.path.startswith("public/")]
+    outputs = set()
+    for artifact in public:
+        relative = Path(artifact.path.removeprefix("public/"))
+        if windows_format == "evtx" and relative.name in WINDOWS_XML:
+            relative = relative.with_suffix(".evtx")
+        if relative in outputs:
+            raise ValueError(f"Public output path collision: {relative}")
+        outputs.add(relative)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=".export-", dir=destination.parent))
+    receipt_created = False
+    committed = False
+    try:
+        conversions = []
+        expected_outputs = {}
+        for artifact in public:
+            relative = artifact.path.removeprefix("public/")
+            target = safe_path(stage, relative)
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(safe_path(bundle, a.path), target)
+            shutil.copyfile(safe_path(bundle, artifact.path), target)
+            if target.stat().st_size != artifact.size or digest(target) != artifact.sha256:
+                raise ValueError(f"Source changed during export: {artifact.path}")
+            expected_outputs[relative] = artifact.sha256
+            if windows_format == "evtx" and target.name in WINDOWS_XML:
+                output = target.with_suffix(".evtx")
+                encode_windows(target, output, backend, timeout)
+                conversions.append(
+                    Conversion(
+                        source=artifact,
+                        output=output_artifact(output, output.relative_to(stage).as_posix()),
+                    )
+                )
+                target.unlink()
+                del expected_outputs[relative]
+                expected_outputs[conversions[-1].output.path] = conversions[-1].output.sha256
+        staged_outputs = {}
+        for path in stage.rglob("*"):
+            relative = path.relative_to(stage).as_posix()
+            safe_path(stage, relative)
+            if path.is_dir():
+                continue
+            if not path.is_file():
+                raise ValueError(f"Unexpected public output file type: {relative}")
+            staged_outputs[relative] = digest(path)
+        if staged_outputs != expected_outputs:
+            raise ValueError("Staged export differs from the verified public inventory")
+        if digest(bundle / "manifest.json") != source_manifest_sha256:
+            raise ValueError("Source manifest changed during export")
+        if encoder is not None:
+            check_backend(backend, pin)
+            report = ExportReceipt(
+                source_manifest_sha256=source_manifest_sha256,
+                encoder=encoder,
+                conversions=conversions,
+            )
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            with receipt.open("x") as stream:
+                receipt_created = True
+                stream.write(report.model_dump_json(by_alias=True, indent=2) + "\n")
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(destination)
+        stage.rename(destination)
+        committed = True
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+        if receipt_created and not committed:
+            receipt.unlink()
 
 
 def list_bundles(destination: str) -> list[str]:

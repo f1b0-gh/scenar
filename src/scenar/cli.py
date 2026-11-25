@@ -103,6 +103,11 @@ def parser() -> argparse.ArgumentParser:
     cmd = commands.add_parser("export-public")
     cmd.add_argument("bundle", type=Path)
     cmd.add_argument("--output", "-o", type=Path, required=True)
+    cmd.add_argument("--windows-format", choices=("xml", "evtx"), default="xml")
+    cmd.add_argument("--backend", type=Path, help="External EVTX encoder checkout")
+    cmd.add_argument("--pin", type=Path, help="Explicit EVTX encoder identity pin")
+    cmd.add_argument("--receipt", type=Path, help="Restricted receipt outside the public export")
+    cmd.add_argument("--timeout", type=float, default=300, help="Seconds per EVTX encoding")
     cmd = commands.add_parser("publish")
     cmd.add_argument("bundle", type=Path)
     cmd.add_argument("destination", nargs="?", help="Local store directory or s3://bucket/prefix")
@@ -261,7 +266,15 @@ def dispatch(args) -> int:
         with opener(args.source, "rt") as stream:
             print(json.dumps(find_chains(json.load(stream), args.start), indent=2))
     elif args.command == "export-public":
-        export_public(args.bundle, args.output)
+        export_public(
+            args.bundle,
+            args.output,
+            windows_format=args.windows_format,
+            backend=args.backend,
+            pin=read_pin(args.pin) if args.pin else None,
+            receipt=args.receipt,
+            timeout=args.timeout,
+        )
         print(args.output)
     elif args.command == "backend":
         root = backend_path(args.backend)
@@ -299,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         BotoCoreError,
         ClientError,
         subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
     ) as exc:
         print(f"scenar: {exc}", file=sys.stderr)
         return 2
